@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const logoUrl =
   'https://lh3.googleusercontent.com/aida/AEtjO1WssRz43UrDf-9w7Hp-tr_SBieJRhO-8mCENIjQqDNEy-DdA5mea9m8peDpkIcLrU71N3GW2Jf8k33ZYEjHtkBYdbg0oLPUnto_4Dr4Ov_Iksjc0S3fqV2_IRjfMiwG8cXUUo_Dpww4KcKTDgm-SMT-F3oZd1nSTLnX8MUcg2Cl_yd8qr4ERX1jIvchptGjZVf0056aEIL1VZ9Tc5s6vU3ykBdz8fHk1L0wZbOdsFnQs3fmXdAtLt-sbxg';
@@ -58,13 +59,13 @@ const Header = () => {
           </a>
         </nav>
         <div className="flex items-center gap-space-md">
-          <a
+          <Link
             className="hidden sm:inline-flex items-center px-space-md py-2.5 rounded-lg font-label-md text-label-md text-primary bg-secondary-container hover:bg-secondary-fixed-dim hover:text-on-secondary-fixed transition-all"
             data-path="panel-pmb"
-            href="#"
+            to="/panitia-akademik"
           >
             Masuk Panel Admin
-          </a>
+          </Link>
           <a
             className="inline-flex items-center px-space-lg py-2.5 rounded-lg font-label-md text-label-md bg-primary-container text-on-primary hover:bg-primary transition-all shadow-[0_4px_14px_rgba(40,122,116,0.2)]"
             href="#daftar"
