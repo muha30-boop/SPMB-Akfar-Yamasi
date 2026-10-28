@@ -1,9 +1,33 @@
 import React from 'react';
+import supabase from '../lib/supabaseClient';
 import { SmartBillingCard, ExamCard, ResultCard } from './Cards';
 
 const FormSection = () => {
   const [activeTab, setActiveTab] = React.useState('reguler');
   const [billingAmount, setBillingAmount] = React.useState('250.000');
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const [formData, setFormData] = React.useState({
+    nik: '',
+    family_card_number: '',
+    full_name: '',
+    mother_name: '',
+    whatsapp: '',
+    school_origin: 'SMA',
+    gpa: '',
+    school_name: '',
+    school_city: '',
+    workplace_institution: '',
+    work_experience_years: '',
+    job_title: 'Asisten Tenaga Kefarmasian',
+    previous_institution: '',
+  });
+
+  const [files, setFiles] = React.useState({
+    ijazah: null,
+    photo: null,
+    portfolio: null,
+  });
 
   const switchFormTab = (type) => {
     setActiveTab(type);
@@ -14,9 +38,139 @@ const FormSection = () => {
     }
   };
 
-  const handleFormSubmission = (e) => {
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const { name, files: fileObjs } = e.target;
+    setFiles((prev) => ({
+      ...prev,
+      [name]: fileObjs ? fileObjs[0] : null,
+    }));
+  };
+
+  const uploadFile = async (file, pathPrefix) => {
+    if (!file) return null;
+    const fileName = `${pathPrefix}_${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage
+      .from('spmb-documents')
+      .upload(fileName, file);
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage
+      .from('spmb-documents')
+      .getPublicUrl(fileName);
+    return publicUrl;
+  };
+
+  const handleFormSubmission = async (e) => {
     e.preventDefault();
-    alert('Formulir pendaftaran berhasil dikirim! Silakan periksa SMS dan WhatsApp Anda untuk kode Virtual Account Bank BSI / Mandiri.');
+
+    const paktaChecked = document.getElementById('paktaCheck').checked;
+    if (!paktaChecked) {
+      alert('Harap centang pernyataan bahwa data yang diisi absah dan sesuai dokumen negara.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const billingNumeric = activeTab === 'reguler' ? 250000 : 450000;
+
+      const { data: regNumData, error: regNumError } = await supabase.rpc(
+        'generate_registration_number',
+        { p_route: activeTab === 'reguler' ? 'reguler' : 'rpl' }
+      );
+
+      if (regNumError) throw regNumError;
+
+      let ijazahPath = null;
+      let photoPath = null;
+      let portfolioPath = null;
+
+      try {
+        ijazahPath = await uploadFile(files.ijazah, 'ijazah');
+      } catch (err) {
+        console.error('Failed to upload ijazah:', err);
+      }
+      try {
+        photoPath = await uploadFile(files.photo, 'photo');
+      } catch (err) {
+        console.error('Failed to upload photo:', err);
+      }
+      if (activeTab === 'rpl') {
+        try {
+          portfolioPath = await uploadFile(files.portfolio, 'portfolio');
+        } catch (err) {
+          console.error('Failed to upload portfolio:', err);
+        }
+      }
+
+      const insertData = {
+        registration_number: regNumData,
+        route: activeTab === 'reguler' ? 'reguler' : 'rpl',
+        nik: formData.nik || null,
+        family_card_number: formData.family_card_number || null,
+        full_name: formData.full_name || null,
+        mother_name: formData.mother_name || null,
+        whatsapp: formData.whatsapp || null,
+        billing_amount: billingNumeric,
+        payment_status: 'pending',
+        document_status: 'pending',
+        ...(activeTab === 'reguler' && {
+          school_origin: formData.school_origin || null,
+          gpa: formData.gpa ? parseFloat(formData.gpa) : null,
+          school_name: formData.school_name || null,
+          school_city: formData.school_city || null,
+        }),
+        ...(activeTab === 'rpl' && {
+          workplace_institution: formData.workplace_institution || null,
+          work_experience_years: formData.work_experience_years ? parseInt(formData.work_experience_years, 10) : null,
+          job_title: formData.job_title || null,
+          previous_institution: formData.previous_institution || null,
+        }),
+        document_ijazah_path: ijazahPath,
+        document_photo_path: photoPath,
+        ...(activeTab === 'rpl' && {
+          document_portfolio_path: portfolioPath,
+        }),
+      };
+
+      const { error: insertError } = await supabase
+        .from('registrations')
+        .insert(insertData);
+
+      if (insertError) throw insertError;
+
+      alert(
+        `Pendaftaran berhasil! No. Registrasi: ${regNumData}\n\nSilakan periksa SMS dan WhatsApp Anda untuk kode Virtual Account Bank BSI / Mandiri.`
+      );
+      setFormData({
+        nik: '',
+        family_card_number: '',
+        full_name: '',
+        mother_name: '',
+        whatsapp: '',
+        school_origin: 'SMA',
+        gpa: '',
+        school_name: '',
+        school_city: '',
+        workplace_institution: '',
+        work_experience_years: '',
+        job_title: 'Asisten Tenaga Kefarmasian',
+        previous_institution: '',
+      });
+      setFiles({ ijazah: null, photo: null, portfolio: null });
+    } catch (err) {
+      console.error('Submission error:', err);
+      alert('Gagal mengirim formulir: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const TabButtonReguler = ({ children, ...props }) => (
@@ -63,8 +217,8 @@ const FormSection = () => {
   };
 
   const section2Title = {
-    reguler: 'Riwayat Sekolah &amp; Nilai Rapor',
-    rpl: 'Riwayat Tempat Kerja &amp; Portofolio Farmasi',
+    reguler: 'Riwayat Sekolah & Nilai Rapor',
+    rpl: 'Riwayat Tempat Kerja & Portofolio Farmasi',
   };
 
   return (
@@ -101,7 +255,7 @@ const FormSection = () => {
                   <span className="w-6 h-6 rounded-full bg-secondary-container text-on-secondary-container text-[12px] flex items-center justify-center font-bold">
                     1
                   </span>
-                  Identitas Diri &amp; Kependudukan
+                  Identitas Diri & Kependudukan
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -114,6 +268,9 @@ const FormSection = () => {
                       placeholder="16 Digit Sesuai KTP/KK"
                       required
                       type="text"
+                      name="nik"
+                      value={formData.nik}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div>
@@ -126,6 +283,9 @@ const FormSection = () => {
                       placeholder="16 Digit No. KK"
                       required
                       type="text"
+                      name="family_card_number"
+                      value={formData.family_card_number}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -137,6 +297,9 @@ const FormSection = () => {
                       placeholder="Contoh: Rahmat Hidayat Saputra"
                       required
                       type="text"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div>
@@ -148,6 +311,9 @@ const FormSection = () => {
                       placeholder="Untuk validasi PDDIKTI"
                       required
                       type="text"
+                      name="mother_name"
+                      value={formData.mother_name}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div>
@@ -159,6 +325,9 @@ const FormSection = () => {
                       placeholder="08xxxxxxxxxx"
                       required
                       type="tel"
+                      name="whatsapp"
+                      value={formData.whatsapp}
+                      onChange={handleInputChange}
                     />
                   </div>
                 </div>
@@ -181,7 +350,12 @@ const FormSection = () => {
                     <label className="block font-label-sm text-on-surface-variant mb-1">
                       Asal Jenjang Sekolah*
                     </label>
-                    <select className="w-full h-11 px-3 rounded-lg bg-surface text-on-surface font-body-md">
+                    <select
+                      className="w-full h-11 px-3 rounded-lg bg-surface text-on-surface font-body-md"
+                      name="school_origin"
+                      value={formData.school_origin}
+                      onChange={handleInputChange}
+                    >
                       <option value="SMA">SMA - Jurusan IPA</option>
                       <option value="SMK_FAR">SMK Farmasi / Kesehatan</option>
                       <option value="MA">Madrasah Aliyah (MA) IPA</option>
@@ -199,16 +373,22 @@ const FormSection = () => {
                       placeholder="Misal: 84.50"
                       step="0.1"
                       type="number"
+                      name="gpa"
+                      value={formData.gpa}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block font-label-sm text-on-surface-variant mb-1">
-                      Nama Sekolah Asal &amp; Kota*
+                      Nama Sekolah Asal & Kota*
                     </label>
                     <input
                       className="w-full h-11 px-3.5 rounded-lg bg-surface text-on-surface font-body-md"
                       placeholder="Misal: SMAN 1 Makassar / SMF Yamasi"
                       type="text"
+                      name="school_name"
+                      value={formData.school_name}
+                      onChange={handleInputChange}
                     />
                   </div>
                 </div>
@@ -224,6 +404,9 @@ const FormSection = () => {
                       className="w-full h-11 px-3.5 rounded-lg bg-surface text-on-surface font-body-md"
                       placeholder="Misal: Apotek Sehat Farma / RS Wahidin Sudirohusodo"
                       type="text"
+                      name="workplace_institution"
+                      value={formData.workplace_institution}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div>
@@ -236,13 +419,21 @@ const FormSection = () => {
                       min="1"
                       placeholder="Misal: 3 Tahun"
                       type="number"
+                      name="work_experience_years"
+                      value={formData.work_experience_years}
+                      onChange={handleInputChange}
                     />
                   </div>
                   <div>
                     <label className="block font-label-sm text-on-surface-variant mb-1">
                       Jabatan / Peran Klinis*
                     </label>
-                    <select className="w-full h-11 px-3.5 rounded-lg bg-surface text-on-surface font-body-md">
+                    <select
+                      className="w-full h-11 px-3.5 rounded-lg bg-surface text-on-surface font-body-md"
+                      name="job_title"
+                      value={formData.job_title}
+                      onChange={handleInputChange}
+                    >
                       <option>Asisten Tenaga Kefarmasian</option>
                       <option>Pengelola Gudang Farmasi / PBF</option>
                       <option>Staf Logistik Obat Puskesmas</option>
@@ -257,6 +448,9 @@ const FormSection = () => {
                       className="w-full h-11 px-3.5 rounded-lg bg-surface text-on-surface font-body-md"
                       placeholder="Untuk konversi SKS mata kuliah umum"
                       type="text"
+                      name="previous_institution"
+                      value={formData.previous_institution}
+                      onChange={handleInputChange}
                     />
                   </div>
                 </div>
@@ -269,34 +463,55 @@ const FormSection = () => {
                   Unggah Berkas Pendukung (Format PDF/JPG maks. 2MB)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-all">
+                  <label className="p-4 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-all">
+                    <input
+                      type="file"
+                      name="ijazah"
+                      accept=".pdf,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
                     <span className="material-symbols-outlined text-secondary text-[28px] mb-1">
                       upload_file
                     </span>
                     <span className="font-label-md text-on-surface">Scan Ijazah Asli / SKL</span>
                     <span className="font-body-sm text-on-surface-variant text-[11px]">PDF atau JPEG resmi sekolah</span>
-                  </div>
-                  <div className="p-4 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-all">
+                  </label>
+                  <label className="p-4 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-all">
+                    <input
+                      type="file"
+                      name="photo"
+                      accept=".jpg,.jpeg"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
                     <span className="material-symbols-outlined text-secondary text-[28px] mb-1">
                       add_a_photo
                     </span>
                     <span className="font-label-md text-on-surface">Pasfoto 3x4 (Latar Merah)</span>
                     <span className="font-body-sm text-on-surface-variant text-[11px]">Pakaian kemeja formal rapi</span>
-                  </div>
-                  <div
+                  </label>
+                  <label
                     className={`p-4 rounded-xl bg-surface-container-low flex flex-col items-center justify-center text-center cursor-pointer hover:bg-surface-container transition-all ${
                       activeTab === 'rpl' ? 'sm:col-span-2 block' : 'hidden'
                     }`}
                     id="dropzonePorto"
                   >
+                    <input
+                      type="file"
+                      name="portfolio"
+                      accept=".pdf,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
                     <span className="material-symbols-outlined text-tertiary text-[28px] mb-1">
                       work_history
                     </span>
-                    <span className="font-label-md text-on-surface">Dokumen Portofolio Kerja &amp; SK Bekerja</span>
+                    <span className="font-label-md text-on-surface">Dokumen Portofolio Kerja & SK Bekerja</span>
                     <span className="font-body-sm text-on-surface-variant text-[11px]">
                       Surat keterangan kerja dari pimpinan apotek/RS + logbook kegiatan kefarmasian
                     </span>
-                  </div>
+                  </label>
                 </div>
               </div>
               <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -307,10 +522,18 @@ const FormSection = () => {
                   </label>
                 </div>
                 <button
-                  className="w-full sm:w-auto px-7 py-3 rounded-lg bg-primary-container text-on-primary font-label-md hover:bg-primary transition-all shadow-md shrink-0"
+                  className="w-full sm:w-auto px-7 py-3 rounded-lg bg-primary-container text-on-primary font-label-md hover:bg-primary transition-all shadow-md shrink-0 disabled:opacity-60"
                   type="submit"
+                  disabled={isSubmitting}
                 >
-                  Kirim Formulir &amp; Buka Smart Billing
+                  {isSubmitting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px] animate-spin">sync</span>
+                      <span>Menyimpan...</span>
+                    </span>
+                  ) : (
+                    'Kirim Formulir & Buka Smart Billing'
+                  )}
                 </button>
               </div>
             </form>

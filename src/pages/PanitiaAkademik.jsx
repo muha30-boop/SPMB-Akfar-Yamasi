@@ -1,10 +1,110 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import supabase from '../lib/supabaseClient';
 
 const logoUrl =
   'https://lh3.googleusercontent.com/aida/AEtjO1WssRz43UrDf-9w7Hp-tr_SBieJRhO-8mCENIjQqDNEy-DdA5mea9m8peDpkIcLrU71N3GW2Jf8k33ZYEjHtkBYdbg0oLPUnto_4Dr4Ov_Iksjc0S3fqV2_IRjfMiwG8cXUUo_Dpww4KcKTDgm-SMT-F3oZd1nSTLnX8MUcg2Cl_yd8qr4ERX1jIvchptGjZVf0056aEIL1VZ9Tc5s6vU3ykBdz8fHk1L0wZbOdsFnQs3fmXdAtLt-sbxg';
 
 const PanitiaAkademik = () => {
+  const [registrations, setRegistrations] = React.useState([]);
+  const [panelStaff, setPanelStaff] = React.useState([]);
+  const [menuItems, setMenuItems] = React.useState([]);
+  const [panelSettings, setPanelSettings] = React.useState({});
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const routeLabel = {
+    reguler: 'Reguler (D-3 Farmasi)',
+    rpl: 'RPL TTK (Alih Jenjang)',
+  };
+
+  const initials = (name) =>
+    name
+      ?.split(' ')
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || 'PA';
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const { data: regData, error: regError } = await supabase
+          .from('registrations')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (regError) throw regError;
+        setRegistrations(regData || []);
+
+        const { data: staffData, error: staffError } = await supabase
+          .from('panel_staff')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order');
+
+        if (staffError) throw staffError;
+        setPanelStaff(staffData || []);
+
+        const { data: menuData, error: menuError } = await supabase
+          .from('panel_menu_items')
+          .select('*')
+          .eq('is_active', true)
+          .order('display_order');
+
+        if (menuError) throw menuError;
+        setMenuItems(menuData || []);
+
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('panel_settings')
+          .select('*');
+
+        if (settingsError) throw settingsError;
+        const settingsObj = (settingsData || []).reduce((acc, s) => {
+          acc[s.key] = s.value;
+          return acc;
+        }, {});
+        setPanelSettings(settingsObj);
+      } catch (err) {
+        console.error('Error fetching panel data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const metrics = React.useMemo(() => {
+    const total = registrations.length;
+    const paid = registrations.filter((r) => r.payment_status === 'paid').length;
+    const pendingPay = registrations.filter((r) => r.payment_status === 'pending').length;
+    const failedPay = registrations.filter((r) => r.payment_status === 'failed').length;
+    const accepted = registrations.filter((r) => r.admission_status === 'accepted').length;
+    const registered = registrations.filter((r) => r.admission_status === 'registered').length;
+    const regulerCount = registrations.filter((r) => r.route === 'reguler').length;
+    const rplCount = registrations.filter((r) => r.route === 'rpl').length;
+    const needsVerification = registrations.filter(
+      (r) => r.document_status === 'pending' || r.document_status === 'revision'
+    ).length;
+
+    return {
+      totalRegistrations: total,
+      paidRegistrations: paid,
+      pendingPayments: pendingPay,
+      failedPayments: failedPay,
+      acceptedCount: accepted,
+      registeredCount: registered,
+      regulerCount,
+      rplCount,
+      needsVerification,
+      classRegACount: registrations.filter((r) => r.class_assignment === 'Reguler A').length,
+      classRegBCount: registrations.filter((r) => r.class_assignment === 'Reguler B').length,
+      classRplCount: registrations.filter(
+        (r) => r.class_assignment && r.class_assignment.includes('RPL')
+      ).length,
+    };
+  }, [registrations]);
   return (
     <div className="bg-surface font-body-md text-body-md text-on-surface antialiased">
       <aside className="fixed left-0 top-0 h-full w-72 bg-primary-container z-50 flex flex-col justify-between py-6 px-4 shadow-[2px_0_12px_rgba(40,122,116,0.12)]">
@@ -21,30 +121,31 @@ const PanitiaAkademik = () => {
               Menu Panitia &amp; Akademik
             </p>
             <nav className="flex flex-col gap-1.5" data-active-classes="bg-surface-container-lowest text-primary font-label-lg rounded-xl shadow-sm">
-              <a aria-current="page" className="flex items-center gap-3 px-3.5 py-3 transition-all bg-surface-container-lowest text-primary font-label-lg rounded-xl shadow-sm" data-path="panel-pmb" href="#">
-                <span className="material-symbols-outlined text-[20px]">space_dashboard</span>
-                <span>Dashboard Ringkasan</span>
-              </a>
-              <a className="flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md text-label-md text-on-primary hover:bg-primary hover:text-on-primary transition-all" data-path="verifikasi-berkas" href="#">
-                <span className="material-symbols-outlined text-[20px]">fact_check</span>
-                <span>Verifikasi Berkas</span>
-              </a>
-              <a className="flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md text-label-md text-on-primary hover:bg-primary hover:text-on-primary transition-all" data-path="asesmen-portofolio-rpl" href="#">
-                <span className="material-symbols-outlined text-[20px]">assignment_ind</span>
-                <span>Asesmen Portofolio RPL</span>
-              </a>
-              <a className="flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md text-label-md text-on-primary hover:bg-primary hover:text-on-primary transition-all" data-path="manajemen-ujian-masuk" href="#">
-                <span className="material-symbols-outlined text-[20px]">quiz</span>
-                <span>Manajemen Ujian Masuk</span>
-              </a>
-              <a className="flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md text-label-md text-on-primary hover:bg-primary hover:text-on-primary transition-all" data-path="admisi-dan-penetapan" href="#">
-                <span className="material-symbols-outlined text-[20px]">badge</span>
-                <span>Admisi &amp; Penetapan NIM</span>
-              </a>
-              <a className="flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md text-label-md text-on-primary hover:bg-primary hover:text-on-primary transition-all" data-path="export-pddikti-siakad" href="#">
-                <span className="material-symbols-outlined text-[20px]">sync_alt</span>
-                <span>Export PDDIKTI / SIAKAD</span>
-              </a>
+              {(menuItems.length > 0 ? menuItems : [
+                { label: 'Dashboard Ringkasan', icon: 'space_dashboard', data_path: 'panel-pmb' },
+                { label: 'Verifikasi Berkas', icon: 'fact_check', data_path: 'verifikasi-berkas' },
+                { label: 'Asesmen Portofolio RPL', icon: 'assignment_ind', data_path: 'asesmen-portofolio-rpl' },
+                { label: 'Manajemen Ujian Masuk', icon: 'quiz', data_path: 'manajemen-ujian-masuk' },
+                { label: 'Admisi & Penetapan NIM', icon: 'badge', data_path: 'admisi-dan-penetapan' },
+                { label: 'Export PDDIKTI / SIAKAD', icon: 'sync_alt', data_path: 'export-pddikti-siakad' },
+              ]).map((item, idx) => (
+                <a
+                  key={item.id || idx}
+                  aria-current={item.data_path === 'panel-pmb' ? 'page' : undefined}
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl font-label-md transition-all ${
+                    item.data_path === 'panel-pmb'
+                      ? 'bg-surface-container-lowest text-primary font-label-lg shadow-sm'
+                      : 'text-on-primary hover:bg-primary hover:text-on-primary'
+                  }`}
+                  data-path={item.data_path}
+                  href="#"
+                >
+                  {item.icon && (
+                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                  )}
+                  <span>{item.label}</span>
+                </a>
+              ))}
             </nav>
           </div>
         </div>
@@ -72,11 +173,21 @@ const PanitiaAkademik = () => {
             </button>
             <div className="flex items-center gap-3 pl-2">
               <div className="flex flex-col text-right hidden sm:flex">
-                <span className="font-label-md text-label-md text-on-surface">Panitia SPMB 2025</span>
-                <span className="font-label-sm text-label-sm text-secondary">Staf Verifikator Akademik</span>
+                <span className="font-label-md text-label-md text-on-surface">
+                  {panelStaff.length > 0 ? panelStaff[0].full_name : 'Panitia SPMB 2025'}
+                </span>
+                <span className="font-label-sm text-label-sm text-secondary">
+                  {panelStaff.length > 0 ? panelStaff[0].role : 'Staf Verifikator Akademik'}
+                </span>
               </div>
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
+              <div
+                className={`w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-label-sm font-bold`}
+              >
+                {panelStaff.length > 0 && panelStaff[0].avatar_initials
+                  ? panelStaff[0].avatar_initials
+                  : panelStaff.length > 0
+                  ? initials(panelStaff[0].full_name)
+                  : 'PA'}
               </div>
             </div>
           </div>
@@ -118,7 +229,7 @@ const PanitiaAkademik = () => {
                 <button className="flex items-center gap-2 bg-surface-container-lowest hover:bg-surface-container font-label-md text-label-md text-primary px-4 py-2.5 rounded-xl shadow-sm transition-all">
                   <span className="material-symbols-outlined text-[18px]">verified</span>
                   <span>Verifikasi Masuk</span>
-                  <span className="px-2 py-0.5 rounded-full bg-error text-on-error text-label-sm font-label-sm ml-0.5">8 Baru</span>
+                   <span className="px-2 py-0.5 rounded-full bg-error text-on-error text-label-sm font-label-sm ml-0.5">{metrics.needsVerification} Baru</span>
                 </button>
                 <button className="flex items-center gap-2 bg-tertiary-fixed hover:bg-tertiary-fixed-dim font-label-md text-label-md text-on-tertiary-fixed px-4 py-2.5 rounded-xl shadow-sm transition-all">
                   <span className="material-symbols-outlined text-[18px]">file_download</span>
@@ -139,10 +250,7 @@ const PanitiaAkademik = () => {
                   <div>
                     <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Total Registrasi</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-display-lg text-display-lg text-on-surface leading-none">482</span>
-                      <span className="font-label-sm text-label-sm text-secondary flex items-center font-semibold">
-                        <span className="material-symbols-outlined text-[16px]">trending_up</span>+18%
-                      </span>
+                      <span className="font-display-lg text-display-lg text-on-surface leading-none">{metrics.totalRegistrations}</span>
                     </div>
                   </div>
                   <div className="w-11 h-11 rounded-xl bg-surface-container-low flex items-center justify-center text-primary">
@@ -150,11 +258,20 @@ const PanitiaAkademik = () => {
                   </div>
                 </div>
                 <div className="mt-4 pt-3 flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant">
-                  <span>Kapasitas Target: 500 Maba</span>
-                  <span className="font-label-md text-label-md text-primary font-semibold">96.4%</span>
+                  <span>Kapasitas Target: {panelSettings.target_capacity || 500} Maba</span>
+                  <span className="font-label-md text-label-md text-primary font-semibold">
+                    {panelSettings.target_capacity
+                      ? Math.round((metrics.totalRegistrations / parseInt(panelSettings.target_capacity, 10)) * 100)
+                      : 0}%
+                  </span>
                 </div>
                 <div className="w-full bg-surface-container-low h-1.5 rounded-full mt-1.5 overflow-hidden">
-                  <div className="bg-primary-container h-full rounded-full" style={{ width: '96.4%' }}></div>
+                  <div
+                    className="bg-primary-container h-full rounded-full"
+                    style={{
+                      width: `${panelSettings.target_capacity ? Math.min((metrics.totalRegistrations / parseInt(panelSettings.target_capacity, 10)) * 100, 100) : 0}%`,
+                    }}
+                  ></div>
                 </div>
               </div>
 
@@ -164,8 +281,8 @@ const PanitiaAkademik = () => {
                   <div>
                     <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Pembayaran Lunas</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-display-lg text-display-lg text-primary leading-none">395</span>
-                      <span className="text-label-sm font-label-sm text-on-surface-variant">/ 482</span>
+                      <span className="font-display-lg text-display-lg text-primary leading-none">{metrics.paidRegistrations}</span>
+                      <span className="text-label-sm font-label-sm text-on-surface-variant">/ {metrics.totalRegistrations}</span>
                     </div>
                   </div>
                   <div className="w-11 h-11 rounded-xl bg-secondary-fixed flex items-center justify-center text-on-secondary-fixed">
@@ -175,15 +292,15 @@ const PanitiaAkademik = () => {
                 <div className="grid grid-cols-3 gap-1 mt-4 pt-3 text-center">
                   <div className="bg-surface-container-low rounded-lg p-1.5">
                     <p className="font-label-sm text-label-sm text-on-surface-variant">Verifikasi</p>
-                    <p className="font-label-md text-label-md text-on-surface font-semibold">28</p>
+                    <p className="font-label-md text-label-md text-on-surface font-semibold">{metrics.pendingPayments}</p>
                   </div>
                   <div className="bg-surface-container-low rounded-lg p-1.5">
                     <p className="font-label-sm text-label-sm text-on-surface-variant">Belum</p>
-                    <p className="font-label-md text-label-md text-on-surface font-semibold">45</p>
+                    <p className="font-label-md text-label-md text-on-surface font-semibold">{metrics.failedPayments}</p>
                   </div>
                   <div className="bg-surface-container-low rounded-lg p-1.5">
                     <p className="font-label-sm text-label-sm text-error">Gagal</p>
-                    <p className="font-label-md text-label-md text-error font-semibold">14</p>
+                    <p className="font-label-md text-label-md text-error font-semibold">0</p>
                   </div>
                 </div>
               </div>
@@ -194,9 +311,9 @@ const PanitiaAkademik = () => {
                   <div>
                     <span className="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Lolos Administrasi</span>
                     <div className="flex items-baseline gap-2 mt-1">
-                      <span className="font-display-lg text-display-lg text-on-surface leading-none">310</span>
+                      <span className="font-display-lg text-display-lg text-on-surface leading-none">{metrics.acceptedCount}</span>
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
-                        260 Diterima
+                        {metrics.registeredCount} Diterima
                       </span>
                     </div>
                   </div>
@@ -207,17 +324,26 @@ const PanitiaAkademik = () => {
                 <div className="flex items-center justify-between text-body-sm font-body-sm text-on-surface-variant mt-4 pt-3">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-tertiary-container"></span>
-                    Asesmen RPL: 35
+                    Asesmen RPL: {metrics.rplCount}
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-error"></span>
-                    Revisi: 18
+                    Revisi: {metrics.needsVerification}
                   </span>
                 </div>
                 <div className="w-full bg-surface-container-low h-1.5 rounded-full mt-1.5 overflow-hidden flex">
-                  <div className="bg-primary-container h-full" style={{ width: '65%' }}></div>
-                  <div className="bg-tertiary-container h-full" style={{ width: '15%' }}></div>
-                  <div className="bg-error h-full" style={{ width: '8%' }}></div>
+                  <div
+                    className="bg-primary-container h-full"
+                    style={{ width: `${metrics.totalRegistrations ? (metrics.acceptedCount / metrics.totalRegistrations) * 100 : 0}%` }}
+                  ></div>
+                  <div
+                    className="bg-tertiary-container h-full"
+                    style={{ width: `${metrics.totalRegistrations ? (metrics.rplCount / metrics.totalRegistrations) * 20 : 0}%` }}
+                  ></div>
+                  <div
+                    className="bg-error h-full"
+                    style={{ width: `${metrics.totalRegistrations ? (metrics.needsVerification / metrics.totalRegistrations) * 100 : 0}%` }}
+                  ></div>
                 </div>
               </div>
 
@@ -229,12 +355,12 @@ const PanitiaAkademik = () => {
                     <div className="flex items-center gap-3 mt-1.5">
                       <div>
                         <p className="font-label-sm text-label-sm text-on-surface-variant">Reguler (SMA/SMK)</p>
-                        <p className="font-title-lg text-title-lg text-on-surface font-semibold">362</p>
+                        <p className="font-title-lg text-title-lg text-on-surface font-semibold">{metrics.regulerCount}</p>
                       </div>
                       <div className="w-px h-8 bg-surface-container-high"></div>
                       <div>
                         <p className="font-label-sm text-label-sm text-primary font-semibold">Jalur RPL TTK</p>
-                        <p className="font-title-lg text-title-lg text-primary font-semibold">120</p>
+                        <p className="font-title-lg text-title-lg text-primary font-semibold">{metrics.rplCount}</p>
                       </div>
                     </div>
                   </div>
@@ -244,7 +370,7 @@ const PanitiaAkademik = () => {
                 </div>
                 <div className="mt-4 pt-2 flex items-center justify-between text-body-sm font-body-sm">
                   <span className="text-on-surface-variant">Asesmen Portofolio Selesai</span>
-                  <span className="font-label-md text-label-md text-on-surface font-semibold">85 / 120 (71%)</span>
+                  <span className="font-label-md text-label-md text-on-surface font-semibold">{metrics.registeredCount} / {metrics.totalRegistrations}</span>
                 </div>
               </div>
             </div>
@@ -255,7 +381,7 @@ const PanitiaAkademik = () => {
                 <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-label-md text-label-md bg-surface-container-lowest text-primary shadow-sm">
                   <span className="material-symbols-outlined text-[18px]">table_rows</span>
                   <span>Semua Data Pendaftar</span>
-                  <span className="ml-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-label-sm font-label-sm">482</span>
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-label-sm font-label-sm">{metrics.totalRegistrations}</span>
                 </button>
                 <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-label-md text-label-md text-on-surface-variant hover:text-on-variance hover:bg-surface-container transition-all">
                   <span className="material-symbols-outlined text-[18px]">verified_user</span>
@@ -338,244 +464,272 @@ const PanitiaAkademik = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-surface-container text-body-md font-body-md text-on-surface">
-                    {/* Row 1: Reguler - Diterima & Ber-NIM */}
-                    <tr className="hover:bg-surface-container-low/60 transition-colors">
-                      <td className="py-3.5 px-4 text-center">
-                        <input className="rounded text-primary focus:ring-primary" type="checkbox" />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-label-md text-label-md text-primary font-bold">PMB25-0102</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">14 Mei 2025, 09:30</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-label-md shrink-0">NA</div>
-                          <div>
-                            <p className="font-label-md text-label-md text-on-surface font-semibold">Nurul Aisyah Maharani</p>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">NIK: 7371124508050001</p>
-                            <p className="font-label-sm text-label-sm text-on-surface-variant">Makassar, 12 Ags 2006 • Islam</p>
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="9" className="py-12 text-center text-on-surface-variant">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="material-symbols-outlined animate-spin text-[20px]">sync</span>
+                            Memuat data pendaftar...
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-body-sm text-body-sm font-medium">SMK Farmasi Yamasi Makassar</p>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">0812-4211-9870</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">nurul.aisyah@gmail.com</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-surface-container-high text-on-surface font-medium">Reguler (D-3 Farmasi)</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 font-mono">Rp 250.000</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-secondary-fixed text-on-secondary-fixed font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span> Lunas
-                        </span>
-                        <button className="block mt-1 text-label-sm font-label-sm text-primary hover:underline">Struk Bayar (BSI)</button>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
-                          <span className="material-symbols-outlined text-[14px]">done_all</span> Diterima
-                        </span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Rata Rapor: <span className="font-semibold text-on-surface">88.50</span></p>
-                        <div className="flex gap-1.5 mt-1 text-primary">
-                          <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Ijazah / SKL Ada">description</span>
-                          <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Pasfoto 3x4 Ada">account_box</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-label-md text-label-md font-mono text-primary font-bold block">2501001</span>
-                        <p className="font-label-sm text-label-sm text-on-surface font-medium">Kelas: Reguler A</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">PA: apt. Nurfadilah, M.Farm.</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button className="p-1.5 rounded-lg text-primary hover:bg-surface-container transition-all" title="Cetak Kartu Ujian/Admisi">
-                            <span className="material-symbols-outlined text-[18px]">badge</span>
-                          </button>
-                          <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all" title="Detail Data Mahasiswa">
-                            <span className="material-symbols-outlined text-[18px]">visibility</span>
-                          </button>
-                          <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all" title="Edit Biodata">
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    ) : registrations.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" className="py-12 text-center text-on-surface-variant">
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="material-symbols-outlined text-[32px]">inbox_empty</span>
+                            <p>Belum ada data pendaftar. Daftar menggunakan formulir pendaftaran.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      registrations.map((reg, idx) => {
+                        const initialsName = reg.full_name
+                          ? reg.full_name
+                              .split(' ')
+                              .map((w) => w[0])
+                              .join('')
+                              .toUpperCase()
+                              .slice(0, 2)
+                          : '--';
+                        const avatarBg = reg.route === 'rpl'
+                          ? 'bg-secondary-fixed text-on-secondary-fixed'
+                          : 'bg-primary-container text-on-primary';
+                        const docColor =
+                          reg.document_status === 'verified'
+                            ? 'bg-tertiary-fixed text-on-tertiary-fixed'
+                            : reg.document_status === 'rejected'
+                            ? 'bg-error-container text-on-error-container'
+                            : reg.document_status === 'revision'
+                            ? 'bg-error-container text-on-error-container'
+                            : 'bg-surface-container-high text-on-surface';
+                        const paymentColor =
+                          reg.payment_status === 'paid'
+                            ? 'bg-secondary-fixed text-on-secondary-fixed'
+                            : reg.payment_status === 'failed'
+                            ? 'bg-error text-on-error'
+                            : 'bg-surface-container text-on-surface';
+                        const routeBadge =
+                          reg.route === 'rpl'
+                            ? 'bg-primary-container text-on-primary'
+                            : 'bg-surface-container-high text-on-surface';
+                        const hasFiles = !!(reg.document_ijazah_path || reg.document_photo_path);
+                        const billingFormatted = reg.billing_amount
+                          ? `Rp ${Number(reg.billing_amount).toLocaleString('id-ID')}`
+                          : '-';
 
-                    {/* Row 2: Jalur RPL TTK - Proses Asesmen */}
-                    <tr className="hover:bg-surface-container-low/60 transition-colors">
-                      <td className="py-3.5 px-4 text-center">
-                        <input className="rounded text-primary focus:ring-primary" type="checkbox" />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-label-md text-label-md text-primary font-bold">RPL25-0044</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">15 Mei 2025, 14:10</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center font-bold text-label-md shrink-0">AR</div>
-                          <div>
-                            <p className="font-label-md text-label-md text-on-surface font-semibold">Ahmad Rizal Fahrezi</p>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">NIK: 7371081903960004</p>
-                            <p className="font-label-sm text-label-sm text-on-surface-variant">Gowa, 19 Mar 1996 • Islam</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-body-sm text-body-sm font-medium">RSUD Syekh Yusuf Gowa (TTK)</p>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">0852-9901-2234</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">rizal.ttk@rsudgowa.id</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-primary-container text-on-primary font-medium">RPL TTK (Alih Jenjang)</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 font-mono">Rp 450.000</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-secondary-fixed text-on-secondary-fixed font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span> Lunas
-                        </span>
-                        <button className="block mt-1 text-label-sm font-label-sm text-primary hover:underline">Struk Bayar (Mandiri)</button>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-tertiary-fixed text-on-tertiary-fixed font-semibold">
-                          <span className="material-symbols-outlined text-[14px]">psychology</span> Proses Asesmen RPL
-                        </span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Konversi Usulan: <span className="font-semibold text-primary">48 SKS</span></p>
-                        <div className="flex gap-1.5 mt-1 text-primary">
-                          <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Transkrip D3 Lama">history_edu</span>
-                          <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="STRK Aktif Terunggah">clinical_notes</span>
-                          <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Portofolio Logbook Pelayanan">folder_shared</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-body-sm text-body-sm text-on-surface-variant italic">Menunggu Sidang Asesor</span>
-                        <p className="font-label-sm text-label-sm text-on-surface">Tes Wawancara: 20 Mei 2025</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">Rencana Kelas: RPL Sore</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button className="px-2.5 py-1 rounded-lg bg-primary-container text-on-primary font-label-sm text-label-sm shadow-sm hover:bg-primary transition-all">Asesmen SKS</button>
-                          <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">
-                            <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* Row 3: Menunggu Verifikasi Berkas (New) */}
-                    <tr className="hover:bg-surface-container-low/60 transition-colors bg-surface-container-low/30">
-                      <td className="py-3.5 px-4 text-center">
-                        <input className="rounded text-primary focus:ring-primary" type="checkbox" />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-label-md text-label-md text-primary font-bold">PMB25-0158</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">Hari ini, 08:15</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-surface-container-high text-on-surface flex items-center justify-center font-bold text-label-md shrink-0">FT</div>
-                          <div>
-                            <p className="font-label-md text-label-md text-on-surface font-semibold">Fathir Tri Wicaksono</p>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">NIK: 7371101101060002</p>
-                            <p className="font-label-sm text-label-sm text-on-surface-variant">Maros, 11 Jan 2007 • Islam</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-body-sm text-body-sm font-medium">SMA Negeri 1 Maros (IPA)</p>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">0821-8876-1102</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">fathir.wicaksono@yahoo.com</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-surface-container-high text-on-surface font-medium">Reguler (D-3 Farmasi)</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 font-mono">Rp 250.000</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-secondary-fixed text-on-secondary-fixed font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span> Lunas
-                        </span>
-                        <button className="block mt-1 text-label-sm font-label-sm text-primary hover:underline">Struk Bayar (BRI)</button>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-surface-container-high text-on-surface font-semibold">
-                          <span className="material-symbols-outlined text-[14px]">hourglass_top</span> Menunggu Verifikasi
-                        </span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">Rata Rapor: <span className="font-semibold text-on-surface">84.20</span></p>
-                        <div className="flex gap-1.5 mt-1 text-on-surface-variant">
-                          <span className="material-symbols-outlined text-[16px] text-primary" title="Ijazah/SKL Terunggah">description</span>
-                          <span className="material-symbols-outlined text-[16px] text-primary" title="Pasfoto Terunggah">account_box</span>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">Tes CBT Gel. 1</span>
-                        <p className="font-label-sm text-label-sm text-on-surface">Lab Komputer Yamasi B</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">22 Mei 2025 • 08:30 WITA</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button className="px-3 py-1 rounded-lg bg-primary font-label-sm text-label-sm text-on-primary hover:bg-primary-container shadow-sm transition-all">Verifikasi</button>
-                          <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">
-                            <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {/* Row 4: Berkas Revisi */}
-                    <tr className="hover:bg-surface-container-low/60 transition-colors">
-                      <td className="py-3.5 px-4 text-center">
-                        <input className="rounded text-primary focus:ring-primary" type="checkbox" />
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-label-md text-label-md text-primary font-bold">PMB25-0089</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">12 Mei 2025, 11:22</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-error-container text-on-error-container flex items-center justify-center font-bold text-label-md shrink-0">GM</div>
-                          <div>
-                            <p className="font-label-md text-label-md text-on-surface font-semibold">Gracia Maria Tumewu</p>
-                            <p className="font-body-sm text-body-sm text-on-surface-variant">NIK: 7371146205060003</p>
-                            <p className="font-label-sm text-label-sm text-on-surface-variant">Makassar, 22 Mei 2006 • Kristen</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-body-sm text-body-sm font-medium">SMA Katolik Rajawali</p>
-                        <p className="font-body-sm text-body-sm text-on-surface-variant">0813-5590-4411</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">gracia.tumewu@gmail.com</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm bg-surface-container-high text-on-surface font-medium">Reguler (D-3 Farmasi)</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 font-mono">Rp 250.000</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-label-sm bg-secondary-fixed text-on-secondary-fixed font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary"></span> Lunas
-                        </span>
-                        <button className="block mt-1 text-label-sm font-label-sm text-primary hover:underline">Struk Bayar (BNI)</button>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-label-sm font-label-sm bg-error-container text-on-error-container font-semibold">
-                          <span className="material-symbols-outlined text-[14px]">warning</span> Revisi Dokumen
-                        </span>
-                        <p className="font-label-sm text-label-sm text-error mt-1">Scan SKL Buram / Terpotong</p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">Jadwal Tertunda</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">Menunggu Berkas Valid</p>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button className="p-1.5 rounded-lg text-primary hover:bg-surface-container transition-all" title="Kirim Notifikasi WA Pengingat Revisi">
-                            <span className="material-symbols-outlined text-[18px]">forward_to_inbox</span>
-                          </button>
-                          <button className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">
-                            <span className="material-symbols-outlined text-[18px]">edit</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        return (
+                          <tr
+                            key={reg.id || idx}
+                            className="hover:bg-surface-container-low/60 transition-colors"
+                          >
+                            <td className="py-3.5 px-4 text-center">
+                              <input
+                                className="rounded text-primary focus:ring-primary"
+                                type="checkbox"
+                              />
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="font-label-md text-label-md text-primary font-bold">
+                                {reg.registration_number || '-'}
+                              </span>
+                              <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                {reg.created_at
+                                  ? new Date(reg.created_at).toLocaleDateString('id-ID', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : '-'}
+                              </p>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-label-md shrink-0 ${avatarBg}`}
+                                >
+                                  {initialsName}
+                                </div>
+                                <div>
+                                  <p className="font-label-md text-label-md text-on-surface font-semibold">
+                                    {reg.full_name || '-'}
+                                  </p>
+                                  <p className="font-body-sm text-body-sm text-on-surface-variant">
+                                    NIK: {reg.nik || '-'}
+                                  </p>
+                                  {reg.birth_place && reg.birth_date && (
+                                    <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                      {reg.birth_place}, {new Date(reg.birth_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <p className="font-body-sm text-body-sm font-medium">
+                                {reg.route === 'reguler'
+                                  ? reg.school_name || reg.school_origin || '-'
+                                  : reg.workplace_institution || '-'}
+                              </p>
+                              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                                {reg.whatsapp || '-'}
+                              </p>
+                              {reg.email && (
+                                <p className="font-label-sm text-label-sm text-on-surface-variant">{reg.email}</p>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-label-sm font-label-sm ${routeBadge} font-medium`}
+                              >
+                                {routeLabel[reg.route] || reg.route}
+                              </span>
+                              <p className="font-label-sm text-label-sm text-on-surface-variant mt-1 font-mono">
+                                {billingFormatted}
+                              </p>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-label-sm font-label-sm ${paymentColor} font-semibold`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>{' '}
+                                {reg.payment_status === 'paid'
+                                  ? 'Lunas'
+                                  : reg.payment_status === 'failed'
+                                  ? 'Gagal'
+                                  : 'Menunggu'}
+                              </span>
+                              <button className="block mt-1 text-label-sm font-label-sm text-primary hover:underline">
+                                Struk Bayar
+                              </button>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-label-sm font-label-sm ${docColor} font-semibold`}
+                              >
+                                <span className="material-symbols-outlined text-[14px]">
+                                  {reg.document_status === 'verified'
+                                    ? 'done_all'
+                                    : reg.document_status === 'rejected'
+                                    ? 'warning'
+                                    : reg.document_status === 'revision'
+                                    ? 'warning'
+                                    : 'hourglass_top'}
+                                </span>{' '}
+                                {reg.document_status === 'pending'
+                                  ? 'Menunggu Verifikasi'
+                                  : reg.document_status === 'verified'
+                                  ? 'Diterima'
+                                  : reg.document_status === 'rejected'
+                                  ? 'Ditolak'
+                                  : 'Revisi Dokumen'}
+                              </span>
+                              {reg.route === 'reguler' && reg.gpa && (
+                                <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">
+                                  Rata Rapor:{' '}
+                                  <span className="font-semibold text-on-surface">{reg.gpa}</span>
+                                </p>
+                              )}
+                              {reg.route === 'rpl' && reg.rpl_sks_awarded && (
+                                <p className="font-label-sm text-label-sm text-on-surface-variant mt-1">
+                                  Konversi SKS:{' '}
+                                  <span className="font-semibold text-primary">{reg.rpl_sks_awarded} SKS</span>
+                                </p>
+                              )}
+                              <div className="flex gap-1.5 mt-1 text-primary">
+                                {reg.document_ijazah_path && (
+                                  <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Ijazah / SKL Terunggah">
+                                    description
+                                  </span>
+                                )}
+                                {reg.document_photo_path && (
+                                  <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Pasfoto Terunggah">
+                                    account_box
+                                  </span>
+                                )}
+                                {reg.route === 'rpl' && reg.document_portfolio_path && (
+                                  <span className="material-symbols-outlined text-[16px] cursor-pointer hover:text-secondary" title="Portofolio Terunggah">
+                                    folder_shared
+                                  </span>
+                                )}
+                                {!hasFiles && (
+                                  <span className="material-symbols-outlined text-[16px] text-on-surface-variant" title="Belum ada dokumen">
+                                    hourglass_empty
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              {reg.nim ? (
+                                <>
+                                  <span className="font-label-md text-label-md font-mono text-primary font-bold block">
+                                    {reg.nim}
+                                  </span>
+                                  {reg.class_assignment && (
+                                    <p className="font-label-sm text-label-sm text-on-surface font-medium">
+                                      Kelas: {reg.class_assignment}
+                                    </p>
+                                  )}
+                                  {reg.academic_advisor && (
+                                    <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                      PA: {reg.academic_advisor}
+                                    </p>
+                                  )}
+                                </>
+                              ) : reg.exam_schedule ? (
+                                <>
+                                  <span className="font-body-sm text-body-sm text-on-surface-variant">
+                                    {reg.exam_schedule}
+                                  </span>
+                                  {reg.exam_room && (
+                                    <p className="font-label-sm text-label-sm text-on-surface">
+                                      {reg.exam_room}
+                                    </p>
+                                  )}
+                                  {reg.exam_time && (
+                                    <p className="font-label-sm text-label-sm text-on-surface-variant">
+                                      {reg.exam_time}
+                                    </p>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="font-body-sm text-body-sm text-on-surface-variant italic">
+                                  {reg.admission_status === 'accepted'
+                                    ? 'Lolos Seleksi'
+                                    : reg.admission_status === 'rejected'
+                                    ? 'Tidak Diterima'
+                                    : 'Tes CBT / Wawancara'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  className="p-1.5 rounded-lg text-primary hover:bg-surface-container transition-all"
+                                  title="Cetak Kartu Ujian/Admisi"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">badge</span>
+                                </button>
+                                <button
+                                  className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all"
+                                  title="Detail Data Mahasiswa"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">visibility</span>
+                                </button>
+                                <button
+                                  className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container transition-all"
+                                  title="Edit Biodata"
+                                >
+                                  <span className="material-symbols-outlined text-[18px]">edit</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -583,7 +737,9 @@ const PanitiaAkademik = () => {
               {/* Pagination & Bulk Execution Bar */}
               <div className="p-4 bg-surface-container-low/70 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <span className="font-body-sm text-body-sm text-on-surface-variant">Menampilkan 1 - 4 dari 482 calon mahasiswa</span>
+                   <span className="font-body-sm text-body-sm text-on-surface-variant">
+                     Menampilkan 1 - {registrations.length} dari {registrations.length} calon mahasiswa
+                   </span>
                   <div className="h-4 w-px bg-surface-container-high hidden sm:block"></div>
                   <div className="flex items-center gap-2">
                     <span className="font-label-sm text-label-sm text-on-surface-variant">Baris per halaman:</span>
@@ -627,23 +783,23 @@ const PanitiaAkademik = () => {
                       Format: 25-01-XXX
                     </span>
                   </div>
-                  <p className="font-body-md text-body-md text-on-surface-variant mb-4">
-                    Penomoran otomatis untuk 260 calon mahasiswa berstatus <span className="text-primary font-semibold">Lolos Ujian/Diterima</span> yang telah menyelesaikan registrasi ulang.
-                  </p>
-                  <div className="bg-surface-container-low p-4 rounded-xl space-y-3 mb-4">
-                    <div className="flex justify-between font-body-sm text-body-sm">
-                      <span className="text-on-surface-variant">NIM Terakhir Diterbitkan:</span>
-                      <span className="font-mono font-semibold text-on-surface">2501064</span>
-                    </div>
-                    <div className="flex justify-between font-body-sm text-body-sm">
-                      <span className="text-on-surface-variant">Antrian Siap Generate:</span>
-                      <span className="font-semibold text-primary">196 Mahasiswa</span>
-                    </div>
-                    <div className="flex justify-between font-body-sm text-body-sm">
-                      <span className="text-on-surface-variant">Prefix Prodi:</span>
-                      <span className="font-semibold text-on-surface">01 (D-3 Farmasi)</span>
-                    </div>
-                  </div>
+                   <p className="font-body-md text-body-md text-on-surface-variant mb-4">
+                     Penomoran otomatis untuk {metrics.acceptedCount} calon mahasiswa berstatus <span className="text-primary font-semibold">Lolos Ujian/Diterima</span> yang telah menyelesaikan registrasi ulang.
+                   </p>
+                   <div className="bg-surface-container-low p-4 rounded-xl space-y-3 mb-4">
+                     <div className="flex justify-between font-body-sm text-body-sm">
+                       <span className="text-on-surface-variant">NIM Terakhir Diterbitkan:</span>
+                       <span className="font-mono font-semibold text-on-surface">{panelSettings.last_nim || '2501064'}</span>
+                     </div>
+                     <div className="flex justify-between font-body-sm text-body-sm">
+                       <span className="text-on-surface-variant">Antrian Siap Generate:</span>
+                       <span className="font-semibold text-primary">{metrics.registeredCount - (parseInt(panelSettings.last_nim || '0', 10) - parseInt(panelSettings.nim_base || '2500000', 10))} Mahasiswa</span>
+                     </div>
+                     <div className="flex justify-between font-body-sm text-body-sm">
+                       <span className="text-on-surface-variant">Prefix Prodi:</span>
+                       <span className="font-semibold text-on-surface">{panelSettings.program_prefix || '01'} (D-3 Farmasi)</span>
+                     </div>
+                   </div>
                 </div>
                 <button className="w-full py-2.5 px-4 rounded-xl bg-primary-container text-on-primary font-label-md text-label-md hover:bg-primary shadow-sm flex items-center justify-center gap-2 transition-all">
                   <span className="material-symbols-outlined text-[18px]">flash_on</span>
@@ -668,38 +824,60 @@ const PanitiaAkademik = () => {
                   <p className="font-body-md text-body-md text-on-surface-variant mb-4">
                     Alokasi kuota mahasiswa ke dalam rombongan belajar dan pembagian Pembimbing Akademik otomatis merata.
                   </p>
-                  <div className="space-y-2.5 mb-4">
-                    <div className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between">
-                      <div>
-                        <p className="font-label-md text-label-md text-on-surface font-semibold">Kelas Reguler A</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">PA: apt. Nurfadilah, M.Farm.</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-label-md text-label-md text-primary font-semibold">48 / 50</span>
-                        <p className="font-label-sm text-label-sm text-secondary font-medium">Hampir Penuh</p>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between">
-                      <div>
-                        <p className="font-label-md text-label-md text-on-surface font-semibold">Kelas Reguler B</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">PA: apt. Syamsuddin, M.Si.</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-label-md text-label-md text-on-surface font-semibold">32 / 50</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">Tersedia 18 Kursi</p>
-                      </div>
-                    </div>
-                    <div className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between">
-                      <div>
-                        <p className="font-label-md text-label-md text-on-surface font-semibold">Kelas RPL Karyawan TTK</p>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">PA: apt. Wahyuni S., M.Sc.</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-label-md text-label-md text-on-surface font-semibold">40 / 45</span>
-                        <p className="font-label-sm text-label-sm text-on-surface-variant">Tersedia 5 Kursi</p>
-                      </div>
-                    </div>
-                  </div>
+                   <div className="space-y-2.5 mb-4">
+                     {(() => {
+                       const classRegA = {
+                         label: 'Kelas Reguler A',
+                         pa: panelSettings.class_reg_a_pa || 'apt. Nurfadilah, M.Farm.',
+                         capacity: parseInt(panelSettings.class_reg_a_capacity || '50', 10),
+                         count: metrics.classRegACount,
+                       };
+                       const classRegB = {
+                         label: 'Kelas Reguler B',
+                         pa: panelSettings.class_reg_b_pa || 'apt. Syamsuddin, M.Si.',
+                         capacity: parseInt(panelSettings.class_reg_b_capacity || '50', 10),
+                         count: metrics.classRegBCount,
+                       };
+                       const classRpl = {
+                         label: 'Kelas RPL Karyawan TTK',
+                         pa: panelSettings.class_rpl_pa || 'apt. Wahyuni S., M.Sc.',
+                         capacity: parseInt(panelSettings.class_rpl_capacity || '45', 10),
+                         count: metrics.classRplCount,
+                       };
+                       const classes = [classRegA, classRegB, classRpl];
+                       return classes.map((cls) => {
+                         const remaining = cls.capacity - cls.count;
+                         const isFull = remaining <= 0;
+                         const isAlmostFull = remaining <= Math.ceil(cls.capacity * 0.1) && remaining > 0;
+                         const statusText = isFull
+                           ? 'Penuh'
+                           : isAlmostFull
+                           ? 'Hampir Penuh'
+                           : `${remaining} Kursi Tersedia`;
+                         const statusColor = isFull
+                           ? 'text-error font-medium'
+                           : isAlmostFull
+                           ? 'text-secondary font-medium'
+                           : 'text-on-surface-variant';
+                         return (
+                           <div key={cls.label} className="p-3 bg-surface-container-low rounded-xl flex items-center justify-between">
+                             <div>
+                               <p className="font-label-md text-label-md text-on-surface font-semibold">{cls.label}</p>
+                               <p className="font-label-sm text-label-sm text-on-surface-variant">PA: {cls.pa}</p>
+                             </div>
+                             <div className="text-right">
+                               <span
+                                 className={`font-label-md text-label-md ${isFull ? 'text-error' : isAlmostFull ? 'text-primary' : 'text-on-surface'} font-semibold`}
+                               >
+                                 {cls.count} / {cls.capacity}
+                               </span>
+                               <p className={`font-label-sm text-label-sm ${statusColor}`}>{statusText}</p>
+                             </div>
+                           </div>
+                         );
+                       })();
+                     })()}
+                   </div>
                 </div>
                 <button className="w-full py-2.5 px-4 rounded-xl bg-surface-container hover:bg-surface-container-high font-label-md text-label-md text-primary flex items-center justify-center gap-2 transition-all">
                   <span className="material-symbols-outlined text-[18px]">tune</span>
