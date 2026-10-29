@@ -8,6 +8,8 @@ import FormSection from './components/FormSection';
 import FacilitiesSection from './components/FacilitiesSection';
 import FaqSection from './components/FaqSection';
 import { HelpdeskSection, Footer } from './components/HelpdeskFooter';
+import Login from './components/Login';
+import Register from './components/Register';
 import PanitiaAkademik from './pages/PanitiaAkademik';
 
 const LandingPage = () => (
@@ -32,6 +34,8 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
       <Route path="/panitia-akademik" element={<PanitiaAkademik />} />
     </Routes>
   );

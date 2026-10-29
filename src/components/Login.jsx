@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
@@ -25,7 +26,8 @@ const Login = () => {
       }
 
       // TODO: Redirect ke dashboard setelah login berhasil
-      // contoh: navigate('/dashboard') jika menggunakan react-router-dom
+      // Contoh menggunakan react-router-dom:
+      // navigate('/dashboard');
       // navigate('/panitia-akademik');
 
       console.log('Login berhasil:', data);
@@ -97,6 +99,15 @@ const Login = () => {
               {isLoading ? 'Memproses...' : 'Login'}
             </button>
           </form>
+
+          <div className="mt-6 text-center">
+            <Link
+              to="/register"
+              className="font-label-md text-label-md text-primary hover:underline transition-all"
+            >
+              Belum punya akun? Daftar
+            </Link>
+          </div>
         </div>
       </div>
     </div>
