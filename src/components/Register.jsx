@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 const Register = () => {
@@ -8,6 +8,9 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,18 +40,54 @@ const Register = () => {
         return;
       }
 
-      // TODO: Redirect ke dashboard setelah registrasi berhasil
-      // contoh menggunakan react-router-dom:
-      // navigate('/dashboard');
-      // navigate('/panitia-akademik');
-
       console.log('Registrasi berhasil:', data);
       setIsLoading(false);
+      setIsSuccess(true);
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan saat registrasi');
       setIsLoading(false);
     }
   };
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-surface-container-low rounded-3xl shadow-[0_8px_32px_rgba(0,97,91,0.12)] p-8">
+            <div className="text-center mb-8">
+              <div className="flex justify-center mb-4">
+                <span className="material-symbols-outlined text-[48px] text-secondary">
+                  mark_email_read
+                </span>
+              </div>
+              <h1 className="font-display-lg text-title-lg text-on-surface">
+                Verifikasi Email Diperlukan
+              </h1>
+            </div>
+
+            <div className="text-center space-y-4 mb-8">
+              <p className="font-body-md text-body-md text-on-surface-variant">
+                Akun berhasil didaftarkan! Kami telah mengirimkan link verifikasi ke:
+              </p>
+              <p className="font-label-md text-label-md text-primary font-semibold">
+                {email}
+              </p>
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Klik link verifikasi di email Anda untuk mengaktifkan akun, kemudian login.
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 rounded-xl font-label-md text-label-md text-on-primary bg-primary hover:bg-primary/90 transition-all shadow-[0_4px_14px_rgba(0,97,91,0.2)]"
+            >
+              Kembali ke Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

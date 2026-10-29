@@ -1,6 +1,7 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+﻿import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import supabase from '../lib/supabaseClient';
+import { useAuth } from '../lib/AuthContext';
 import {
   fetchPanelSettings,
   fetchPanelStaff,
@@ -33,6 +34,8 @@ const DEFAULT_WAVES = [
 ];
 
 const PanitiaAkademik = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [registrations, setRegistrations] = React.useState([]);
   const [panelStaff, setPanelStaff] = React.useState([]);
   const [menuItems, setMenuItems] = React.useState([]);
@@ -103,7 +106,7 @@ const PanitiaAkademik = () => {
     }
   }, [searchTerm, filters, currentPage]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadPanelData();
     const channel = subscribeToRegistrations((payload) => {
       if (payload.new) {
@@ -120,7 +123,7 @@ const PanitiaAkademik = () => {
     };
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadRegistrations();
   }, [loadRegistrations]);
 
@@ -154,6 +157,15 @@ const PanitiaAkademik = () => {
       ).length,
     };
   }, [registrations]);
+
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      alert('Gagal logout: ' + error.message);
+    } else {
+      navigate('/login');
+    }
+  };
 
   const handleVerifikasiMasuk = () => {
     setFilters({ ...filters, document_status: 'pending' });
@@ -289,7 +301,7 @@ const PanitiaAkademik = () => {
             <div className="flex items-center gap-3 pl-2">
               <div className="flex flex-col text-right hidden sm:flex">
                 <span className="font-label-md text-label-md text-on-surface">
-                  {panelStaff.length > 0 ? panelStaff[0].full_name : 'Panitia SPMB 2025'}
+                  {panelStaff.length > 0 ? panelStaff[0].full_name : user?.email || 'Panitia SPMB 2025'}
                 </span>
                 <span className="font-label-sm text-label-sm text-secondary">
                   {panelStaff.length > 0 ? panelStaff[0].role : 'Staf Verifikator Akademik'}
@@ -304,6 +316,13 @@ const PanitiaAkademik = () => {
                   ? initials(panelStaff[0].full_name)
                   : 'PA'}
               </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all text-on-surface-variant"
+                title="Logout"
+              >
+                <span className="material-symbols-outlined text-[20px]">logout</span>
+              </button>
             </div>
           </div>
         </header>
@@ -1165,3 +1184,5 @@ const PanitiaAkademik = () => {
 };
 
 export default PanitiaAkademik;
+
+

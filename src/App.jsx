@@ -10,7 +10,9 @@ import FaqSection from './components/FaqSection';
 import { HelpdeskSection, Footer } from './components/HelpdeskFooter';
 import Login from './components/Login';
 import Register from './components/Register';
+import ProtectedRoute from './components/ProtectedRoute';
 import PanitiaAkademik from './pages/PanitiaAkademik';
+import { AuthProvider } from './lib/AuthContext';
 
 const LandingPage = () => (
   <div className="bg-surface font-body-md text-body-md text-on-surface antialiased">
@@ -32,12 +34,21 @@ const LandingPage = () => (
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/panitia-akademik" element={<PanitiaAkademik />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/panitia-akademik"
+          element={
+            <ProtectedRoute>
+              <PanitiaAkademik />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </AuthProvider>
   );
 }
 

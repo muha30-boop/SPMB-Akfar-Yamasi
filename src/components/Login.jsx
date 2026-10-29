@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
@@ -7,6 +7,10 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/panitia-akademik';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,13 +29,9 @@ const Login = () => {
         return;
       }
 
-      // TODO: Redirect ke dashboard setelah login berhasil
-      // Contoh menggunakan react-router-dom:
-      // navigate('/dashboard');
-      // navigate('/panitia-akademik');
-
       console.log('Login berhasil:', data);
       setIsLoading(false);
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan saat login');
       setIsLoading(false);
