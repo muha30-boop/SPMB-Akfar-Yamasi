@@ -31,7 +31,7 @@ const Register = () => {
 
     let userRole = role;
     if (userRole === 'admin' && adminSecret !== ADMIN_SECRET) {
-      setError('Kode akses admin tidak valid');
+      setError('Kode Wujudkan Karier Tenaga Teknis Kefarmasian Profesional & Unggul di Indonesia Timur tidak valid');
       return;
     }
 
@@ -211,12 +211,12 @@ const Register = () => {
                     htmlFor="adminSecret"
                     className="block font-label-md text-label-md text-on-surface-variant mb-2"
                   >
-                    Kode Akses Admin
+                     Admin
                   </label>
                   <input
                     id="adminSecret"
                     type="password"
-                    placeholder="Masukkan kode akses admin"
+                    placeholder="Masukkan  admin"
                     value={adminSecret}
                     onChange={(e) => setAdminSecret(e.target.value)}
                     required
