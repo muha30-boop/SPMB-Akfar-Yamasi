@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
@@ -9,8 +9,6 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const navigate = useNavigate();
-  const location = useLocation();
-  const from = location.state?.from?.pathname || '/panitia-akademik';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,7 +29,10 @@ const Login = () => {
 
       console.log('Login berhasil:', data);
       setIsLoading(false);
-      navigate(from, { replace: true });
+
+      const role = data?.user?.user_metadata?.role || 'student';
+      const target = role === 'admin' ? '/panitia-akademik' : '/portal-mahasiswa';
+      navigate(target, { replace: true });
     } catch (err) {
       setError(err.message || 'Terjadi kesalahan saat login');
       setIsLoading(false);

@@ -12,6 +12,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import ProtectedRoute from './components/ProtectedRoute';
 import PanitiaAkademik from './pages/PanitiaAkademik';
+import StudentDashboard from './pages/StudentDashboard';
 import { AuthProvider } from './lib/AuthContext';
 
 const LandingPage = () => (
@@ -42,8 +43,16 @@ function App() {
         <Route
           path="/panitia-akademik"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="admin">
               <PanitiaAkademik />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/portal-mahasiswa"
+          element={
+            <ProtectedRoute requiredRole="student">
+              <StudentDashboard />
             </ProtectedRoute>
           }
         />

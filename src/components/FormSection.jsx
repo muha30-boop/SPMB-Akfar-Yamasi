@@ -1,11 +1,14 @@
 import React from 'react';
 import supabase from '../lib/supabaseClient';
+import { useAuth } from '../lib/AuthContext';
 import { SmartBillingCard, ExamCard, ResultCard } from './Cards';
 
 const FormSection = () => {
   const [activeTab, setActiveTab] = React.useState('reguler');
   const [billingAmount, setBillingAmount] = React.useState('250.000');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const { user } = useAuth();
 
   const [formData, setFormData] = React.useState({
     nik: '',
@@ -113,6 +116,7 @@ const FormSection = () => {
       const insertData = {
         registration_number: regNumData,
         route: activeTab === 'reguler' ? 'reguler' : 'rpl',
+        email: user?.email || null,
         nik: formData.nik || null,
         family_card_number: formData.family_card_number || null,
         full_name: formData.full_name || null,

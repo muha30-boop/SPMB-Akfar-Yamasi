@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { ADMIN_SECRET } from '../lib/AuthContext';
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('student');
+  const [adminSecret, setAdminSecret] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -26,12 +29,21 @@ const Register = () => {
       return;
     }
 
+    let userRole = role;
+    if (userRole === 'admin' && adminSecret !== ADMIN_SECRET) {
+      setError('Kode akses admin tidak valid');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: { role: userRole },
+        },
       });
 
       if (authError) {
@@ -50,6 +62,7 @@ const Register = () => {
   };
 
   if (isSuccess) {
+    const dashboardLink = role === 'admin' ? '/panitia-akademik' : '/portal-mahasiswa';
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
@@ -73,16 +86,28 @@ const Register = () => {
                 {email}
               </p>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Klik link verifikasi di email Anda untuk mengaktifkan akun, kemudian login.
+                Klik link verifikasi di email Anda untuk mengaktifkan akun, kemudian login untuk mengakses{' '}
+                <span className="font-semibold">
+                  {role === 'admin' ? 'Panel Admin SPMB' : 'Portal Mahasiswa'}
+                </span>
+                .
               </p>
             </div>
 
-            <button
-              onClick={() => navigate('/login')}
-              className="w-full py-3 rounded-xl font-label-md text-label-md text-on-primary bg-primary hover:bg-primary/90 transition-all shadow-[0_4px_14px_rgba(0,97,91,0.2)]"
-            >
-              Kembali ke Login
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate('/login')}
+                className="w-full py-3 rounded-xl font-label-md text-label-md text-on-primary bg-primary hover:bg-primary/90 transition-all shadow-[0_4px_14px_rgba(0,97,91,0.2)]"
+              >
+                Kembali ke Login
+              </button>
+              <Link
+                to={dashboardLink}
+                className="block text-center font-label-md text-label-md text-on-surface-variant hover:text-primary transition-all"
+              >
+                Buka {role === 'admin' ? 'Panel Admin' : 'Portal Mahasiswa'} (jika sudah diverifikasi)
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -152,6 +177,56 @@ const Register = () => {
                 required
                 className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-body-md text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
               />
+            </div>
+
+            <div className="pt-2 border-t border-outline/20">
+              <div className="flex items-center gap-4 mb-3">
+                <label className="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant cursor-pointer">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="student"
+                    checked={role === 'student'}
+                    onChange={() => setRole('student')}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <span>Pendaftar (Calon Mahasiswa)</span>
+                </label>
+                <label className="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant cursor-pointer">
+                  <input
+                    type="radio"
+                    name="role"
+                    value="admin"
+                    checked={role === 'admin'}
+                    onChange={() => setRole('admin')}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <span>Admin (Panitia Akademik)</span>
+                </label>
+              </div>
+
+              {role === 'admin' && (
+                <div className="transition-all duration-200 ease-out">
+                  <label
+                    htmlFor="adminSecret"
+                    className="block font-label-md text-label-md text-on-surface-variant mb-2"
+                  >
+                    Kode Akses Admin
+                  </label>
+                  <input
+                    id="adminSecret"
+                    type="password"
+                    placeholder="Masukkan kode akses admin"
+                    value={adminSecret}
+                    onChange={(e) => setAdminSecret(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-surface-container-high text-body-md text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                  />
+                  <p className="font-body-xs text-body-xs text-on-surface-variant mt-1">
+                    Hubungi koordinator SPMB untuk mendapatkan kode akses admin.
+                  </p>
+                </div>
+              )}
             </div>
 
             {error && (

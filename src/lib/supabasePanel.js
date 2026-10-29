@@ -63,6 +63,24 @@ export const fetchRegistrationById = async (id) => {
   return { data, error };
 };
 
+export const fetchRegistrationsByAuthUserId = async (authUserId) => {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('*')
+    .eq('auth_user_id', authUserId)
+    .order('created_at', { ascending: false });
+  return { data: data || [], error };
+};
+
+export const fetchRegistrationsByEmail = async (email) => {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select('*')
+    .eq('email', email)
+    .order('created_at', { ascending: false });
+  return { data: data || [], error };
+};
+
 export const updateRegistration = async (id, updates) => {
   const { data, error } = await supabase
     .from('registrations')

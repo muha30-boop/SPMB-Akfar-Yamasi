@@ -3,6 +3,8 @@ import { supabase } from './supabaseClient';
 
 const AuthContext = createContext({});
 
+const ADMIN_SECRET = 'panitia-admin-2025';
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
@@ -40,11 +42,16 @@ export const AuthProvider = ({ children }) => {
     return { error: null };
   };
 
+  const userRole = user?.user_metadata?.role || 'student';
+  const isAdmin = userRole === 'admin';
+
   const value = {
     user,
     session,
     loading,
     signOut,
+    userRole,
+    isAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -57,3 +64,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export { ADMIN_SECRET };
